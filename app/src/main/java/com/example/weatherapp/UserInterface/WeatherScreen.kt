@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -19,54 +18,59 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
+import com.example.weatherapp.BuildConfig
 import com.example.weatherapp.viewmodel.WeatherViewModel
 
 @Composable
-fun WeatherScreen(viewModel: WeatherViewModel = viewModel()) {
+fun WeatherScreen(viewModel: WeatherViewModel) {
+
     var city by remember { mutableStateOf("") }
-    val weatherUiState by viewModel.uiState.collectAsState()
+    val weather by viewModel.weather.collectAsState()
 
     Column(
         modifier = Modifier
             .padding(16.dp)
             .fillMaxSize()
     ) {
+
         OutlinedTextField(
             value = city,
             onValueChange = { city = it },
             label = { Text("Kaupunki") },
             modifier = Modifier.fillMaxWidth()
         )
+
         Spacer(modifier = Modifier.height(8.dp))
-        Button(onClick = { viewModel.searchWeather(city) }) {
+
+        Button(
+            onClick = {
+                viewModel.searchWeather(
+                    city,
+                    BuildConfig.OPENWEATHER_API_KEY
+                )
+            }
+        ) {
             Text("Hae sää")
         }
+
         Spacer(modifier = Modifier.height(16.dp))
 
-        when {
-            weatherUiState.isLoading -> {
-                CircularProgressIndicator()
-            }
-            weatherUiState.error != null -> {
-                Text(text = "Error: ${weatherUiState.error}")
-            }
-            weatherUiState.weather != null -> {
-                val iconCode = weatherUiState.weather!!.weather[0].icon
-                val iconUrl = "https://openweathermap.org/img/wn/${iconCode}@4x.png"
-                AsyncImage(
-                    model = iconUrl,
-                    contentDescription = "Sääkuvake",
-                    modifier = Modifier.size(120.dp)
-                )
+        weather?.let {
 
-                Text(text = weatherUiState.weather!!.weather[0].description)
-                Spacer(modifier = Modifier.height(8.dp))
+            val iconUrl =
+                "https://openweathermap.org/img/wn/${it.icon}@4x.png"
 
-                Text(text = weatherUiState.weather?.name ?: "")
-                Text(text = "Lämpötila: ${weatherUiState.weather?.main?.temp}°C")
-            }
+            AsyncImage(
+                model = iconUrl,
+                contentDescription = "Sääkuvake",
+                modifier = Modifier.size(120.dp)
+            )
+
+            Text(text = it.description)
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(text = it.name)
+            Text(text = "Lämpötila: ${it.temp}°C")
         }
     }
 }

@@ -2,13 +2,17 @@ package com.example.weatherapp.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.weatherapp.data.model.WeatherEntity
 import com.example.weatherapp.data.model.WeatherResponse
+import com.example.weatherapp.data.repository.Repository
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import com.example.weatherapp.BuildConfig
-import com.example.weatherapp.data.remote.RetrofitInstance
 
 data class WeatherUiState(
     val isLoading: Boolean = false,
@@ -16,22 +20,44 @@ data class WeatherUiState(
     val error: String? = null
 )
 
-class WeatherViewModel : ViewModel() {
+class WeatherViewModel(
+    private val repository: Repository
+) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(WeatherUiState())
-    val uiState: StateFlow<WeatherUiState> = _uiState.asStateFlow()
+    private val _selectedCity = MutableStateFlow<String?>(null)
 
-    fun searchWeather(city: String, lang: String = "fi") {
-        if(city.isBlank()) return
+    init {
+        viewModelScope.launch {
+            repository.getLatestWeather().firstOrNull()?.name?.let { lastCity ->
+                if (_selectedCity.value == null) {
+                    _selectedCity.value = lastCity
+                }
+            }
+        }
+    }
+
+    val weather: StateFlow<WeatherEntity?> =
+        _selectedCity
+            .flatMapLatest { city ->
+                if (city == null) {
+                    emptyFlow()
+                } else {
+                    repository.observeWeather(city)
+                }
+            }
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                null
+            )
+
+    fun searchWeather(city: String, apiKey: String, lang: String = "fi") {
+        if (city.isBlank()) return
+
+        _selectedCity.value = city
 
         viewModelScope.launch {
-            _uiState.value = WeatherUiState(isLoading = true)
-            try {
-                val weather = RetrofitInstance.api.getWeather(city, BuildConfig.OPENWEATHER_API_KEY, lang = lang)
-                _uiState.value = WeatherUiState(weather = weather)
-            } catch (e: Exception) {
-                _uiState.value = WeatherUiState(error = e.message)
-            }
+            repository.getWeather(city, apiKey, lang)
         }
     }
 }
