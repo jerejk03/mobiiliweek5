@@ -23,3 +23,47 @@ Kun ViewModel päivittää tilan (esim. Loading → Success), Compose huomaa muu
 API-key laitetaan local.properties-tiedostoon.
 Se siirretään BuildConfig-muuttujaan Gradlen kautta.
 Retrofit lukee sen BuildConfig-arvosta ja lisää sen API-kutsuun.
+
+## Week 6 (Room)
+
+### Mitä Room tekee tässä projektissa?
+Room toimii lokaalina tietokantana ja välimuistina säätiedoille.
+Sen avulla viimeisin haettu säätieto tallentuu laitteelle ja se näkyy myös ilman uutta API-kutsua.
+
+### Projektin rakenne
+Entity
+- WeatherEntity määrittelee tietokantataulun rakenteen. Se sisältää kaupungin nimen, kuvauksen,
+lämpötilan, ikonin ja timestampin.
+DAO
+- WeatherDao sisältää SQL-kyselyt.
+- 
+Database
+- AppDatabase yhdistää Entityn ja DAO:n. Se myös vastaa Room-tietokannan instanssin luomisesta.
+
+Repository
+- Yhdistää API:n ja Roomin.
+- Sisältää välimuistilogiikan.
+
+ViewModel
+- Välittää datan UI:lle.
+- Käynnistää API-haun tarvittaessa.
+- UI kuuntelee Roomista tulevaa Flow-dataa.
+
+UI
+- Näyttää säätiedot.
+- Päivittyyy automaattisesti Roomin datan muuttuessa.
+
+## Miten datavirta kulkee?
+UI → ViewModel → Repository → (Room + API)
+Room → ViewModel → UI
+
+## Miten välimuistilogiikka toimii?
+Repository tarkistaa, onko viimeisimmän säätiedon timestamp yli 30min vanha.
+Jos data on alle 30min vanha:
+- Käytetään Roomissa olevaa dataa.
+- Ei tehdä API-kutsua.
+
+Jos data on yli 30min vanha:
+-Tehdään uusi API-kutsu.
+-Päivitetään Room.
+-UI päivittyy automaattisesti.
